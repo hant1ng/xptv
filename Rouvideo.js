@@ -1,36 +1,39 @@
-// 最终版 v4 (遵照官方文档)
-const cheerio = createCheerio()
+// 最后的终极手段 v5 (记忆功能 + 兼容语法)
+var cheerio = createCheerio()
 
-const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Edg/131.0.0.0'
+var UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Edg/131.0.0.0'
 
-const appConfig = {
+var appConfig = {
     ver: 1,
-    title: '肉视频 (文档版)',
+    title: '肉视频 (终极版)',
     site: 'https://rou.video',
 }
 
+// 1. 恢复“记忆”功能: 使用全局变量来记住分类
+var currentCategoryUrl = '';
+
 async function getConfig() {
-    const config = appConfig
+    var config = appConfig
     config.tabs = await getTabs()
     return jsonify(config)
 }
 
 async function getTabs() {
-    let list = []
-    const { data } = await $fetch.get(`${appConfig.site}/home`, {
+    var list = []
+    var { data } = await $fetch.get(`${appConfig.site}/home`, {
         headers: { 'User-Agent': UA },
     })
-    const $ = cheerio.load(data)
+    var $ = cheerio.load(data)
 
     $('.space-y-8 a').each((_, e) => {
-        const name = $(e).text().trim()
-        const href = $(e).attr('href')
+        var name = $(e).text().trim()
+        var href = $(e).attr('href')
         if (href && name) {
             list.push({
                 name,
                 ui: 1,
                 ext: {
-                    url: href, // 文档规范：将分类信息放入 ext，供 getCards 使用
+                    url: href,
                 },
             })
         }
@@ -41,31 +44,34 @@ async function getTabs() {
 async function getCards(ext) {
     ext = argsify(ext);
     
-    // 文档规范：App 会自动将分类 ext 和 page 合并后传来
-    const { page = 1, url: typeurl } = ext;
-    
-    if (!typeurl) {
-        // 如果没有分类 url，说明出错了，返回空
+    // 2. 使用“记忆”功能处理翻页
+    if (ext.url) {
+        currentCategoryUrl = ext.url;
+    }
+
+    var page = ext.page || 1;
+
+    if (!currentCategoryUrl) {
         return jsonify({ list: [] });
     }
 
-    const url = `${appConfig.site}${typeurl}?page=${page}`;
+    var url = `${appConfig.site}${currentCategoryUrl}?page=${page}`;
     
-    let cards = [];
-    const { data } = await $fetch.get(url, {
+    var cards = [];
+    var { data } = await $fetch.get(url, {
         headers: { 'User-Agent': UA },
     })
-    const $ = cheerio.load(data)
+    var $ = cheerio.load(data)
 
     $('.group').each((_, element) => {
-        const linkElement = $(element).find('h3').closest('a')
-        const href = linkElement.attr('href')
+        var linkElement = $(element).find('h3').closest('a')
+        var href = linkElement.attr('href')
 
         if (!href) return
         
-        const title = linkElement.find('h3').text().trim()
-        const cover = $(element).find('img.relative').attr('src')
-        const duration = $(element).find('.absolute.bottom-1.left-1').text().trim()
+        var title = linkElement.find('h3').text().trim()
+        var cover = $(element).find('img.relative').attr('src')
+        var duration = $(element).find('.absolute.bottom-1.left-1').text().trim()
 
         cards.push({
             vod_id: href,
@@ -73,7 +79,7 @@ async function getCards(ext) {
             vod_pic: cover,
             vod_remarks: duration,
             ext: {
-                url: appConfig.site + href, // 文档规范：将详情页信息放入 ext，供 getTracks 使用
+                url: appConfig.site + href,
             },
         })
     })
@@ -85,26 +91,26 @@ async function getCards(ext) {
 
 async function getTracks(ext) {
     ext = argsify(ext)
-    let tracks = []
-    const url = ext.url
+    var tracks = []
+    var url = ext.url
 
-    const { data } = await $fetch.get(url, {
+    var { data } = await $fetch.get(url, {
         headers: { 'User-Agent': UA },
     })
-    const $ = cheerio.load(data)
+    var $ = cheerio.load(data)
     
-    const jsonData = $('#__NEXT_DATA__').text()
-    const pageData = JSON.parse(jsonData)
+    var jsonData = $('#__NEXT_DATA__').text()
+    var pageData = JSON.parse(jsonData)
 
-    const videoId = pageData.props.pageProps.video.id
+    var videoId = pageData.props.pageProps.video.id
 
-    const playUrl = `https://v.rn179.xyz/hls/${videoId}/index.m3u8`
+    var playUrl = `https://v.rn179.xyz/hls/${videoId}/index.m3u8`
 
     tracks.push({
         name: '播放',
         pan: '',
         ext: {
-            url: playUrl, // 文档规范：将播放链接放入 ext，供 getPlayinfo 使用
+            url: playUrl,
         },
     })
 
@@ -115,31 +121,31 @@ async function getTracks(ext) {
 
 async function getPlayinfo(ext) {
     ext = argsify(ext)
-    const url = ext.url
+    var url = ext.url
     return jsonify({ urls: [url] })
 }
 
 async function search(ext) {
     ext = argsify(ext)
-    let cards = []
-    const text = encodeURIComponent(ext.text)
-    const page = ext.page || 1
-    const url = `${appConfig.site}/search?q=${text}&page=${page}`
+    var cards = []
+    var text = encodeURIComponent(ext.text)
+    var page = ext.page || 1
+    var url = `${appConfig.site}/search?q=${text}&page=${page}`
 
-    const { data } = await $fetch.get(url, {
+    var { data } = await $fetch.get(url, {
         headers: { 'User-Agent': UA },
     })
-    const $ = cheerio.load(data)
+    var $ = cheerio.load(data)
 
     $('.group').each((_, element) => {
-        const linkElement = $(element).find('h3').closest('a')
-        const href = linkElement.attr('href')
+        var linkElement = $(element).find('h3').closest('a')
+        var href = linkElement.attr('href')
 
         if (!href) return
 
-        const title = linkElement.find('h3').text().trim()
-        const cover = $(element).find('img.relative').attr('src')
-        const duration = $(element).find('.absolute.bottom-1.left-1').text().trim()
+        var title = linkElement.find('h3').text().trim()
+        var cover = $(element).find('img.relative').attr('src')
+        var duration = $(element).find('.absolute.bottom-1.left-1').text().trim()
 
         cards.push({
             vod_id: href,
