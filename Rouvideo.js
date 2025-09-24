@@ -1,4 +1,4 @@
-// 来自群友“tou tie”的脚本，由Gemini修正
+// 来自群友“tou tie”的脚本，由Gemini二次修正
 const cheerio = createCheerio()
 
 // 设置User Agent
@@ -7,7 +7,7 @@ const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML,
 // 基础配置
 let appConfig = {
     ver: 1,
-    title: '肉视频 (修正版)',
+    title: '肉视频 (修正版 v2)',
     site: 'https://rou.video',
 }
 
@@ -28,7 +28,6 @@ async function getTabs() {
     })
     const $ = cheerio.load(data)
 
-    // 修正: 使用我们之前分析得出的正确选择器
     $('.space-y-8 a').each((_, e) => {
         const name = $(e).text().trim()
         const href = $(e).attr('href')
@@ -37,8 +36,8 @@ async function getTabs() {
                 name,
                 ui: 1,
                 ext: {
-                    // 修正: ext 中应传递 typeurl 给 getCards
-                    typeurl: href,
+                    // 修正: 将键名改回 'url' 以兼容应用调用规则
+                    url: href,
                 },
             })
         }
@@ -50,10 +49,9 @@ async function getTabs() {
 async function getCards(ext) {
     ext = argsify(ext)
     let cards = []
-    // 修正: 从 ext 中获取 typeurl 和 page
-    let { page = 1, typeurl } = ext
+    // 修正: 从 ext 中读取 'url' 而不是 'typeurl'
+    let { page = 1, url: typeurl } = ext; 
 
-    // 修正: 根据我们分析出的正确分页规则拼接 URL
     const url = `${appConfig.site}${typeurl}?page=${page}`
 
     const { data } = await $fetch.get(url, {
@@ -63,7 +61,6 @@ async function getCards(ext) {
     })
     const $ = cheerio.load(data)
 
-    // 修正: 使用我们之前分析得出的正确卡片选择器 .group
     $('.group').each((_, element) => {
         const linkElement = $(element).find('h3').closest('a')
         const href = linkElement.attr('href')
@@ -78,7 +75,7 @@ async function getCards(ext) {
             vod_id: href,
             vod_name: title,
             vod_pic: cover,
-            vod_remarks: duration, // 使用 remarks 字段显示时长
+            vod_remarks: duration,
             ext: {
                 url: appConfig.site + href,
             },
@@ -94,8 +91,7 @@ async function getCards(ext) {
 async function getTracks(ext) {
     ext = argsify(ext)
     let tracks = []
-    // 修正: 这是最关键的修正，采用从 __NEXT_DATA__ 获取ID的正确逻辑
-    const url = ext.url // 这是详情页的完整URL
+    const url = ext.url
 
     const { data } = await $fetch.get(url, {
         headers: {
@@ -104,14 +100,11 @@ async function getTracks(ext) {
     })
     const $ = cheerio.load(data)
     
-    // 1. 直接选择那个包含所有数据的 JSON 块
     const jsonData = $('#__NEXT_DATA__').text()
     const pageData = JSON.parse(jsonData)
 
-    // 2. 从解析后的数据中获取视频 ID
     const videoId = pageData.props.pageProps.video.id
 
-    // 3. 尝试拼接出基础的 m3u8 链接 (注意：可能因缺少签名而无法播放)
     const playUrl = `https://v.rn179.xyz/hls/${videoId}/index.m3u8`
 
     tracks.push({
@@ -131,7 +124,6 @@ async function getTracks(ext) {
 async function getPlayinfo(ext) {
     ext = argsify(ext)
     const url = ext.url
-    // 修正: 直接返回 m3u8 地址，让播放器去尝试播放
     return jsonify({ urls: [url] })
 }
 
@@ -141,7 +133,6 @@ async function search(ext) {
     let cards = []
     let text = encodeURIComponent(ext.text)
     let page = ext.page || 1
-    // 修正: 搜索URL格式确认
     let url = `${appConfig.site}/search?q=${text}&page=${page}`
 
     const { data } = await $fetch.get(url, {
@@ -151,7 +142,6 @@ async function search(ext) {
     })
     const $ = cheerio.load(data)
 
-    // 修正: 搜索结果页同样使用 .group 选择器
     $('.group').each((_, element) => {
         const linkElement = $(element).find('h3').closest('a')
         const href = linkElement.attr('href')
